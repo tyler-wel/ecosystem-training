@@ -15,7 +15,7 @@ public class MapGenerator : MonoBehaviour {
     public const int mapChunkSize = 241;
     // 1, 2, 4, 6, 8, 10, 12
     [Range(0,6)] // multiply by 2 to get 4, 6, 8, 10, 12
-    public int levelOfDetail;
+    public int editorLOD;
 
     public DrawMode drawMode;
     public float noiseScale;
@@ -41,7 +41,7 @@ public class MapGenerator : MonoBehaviour {
     /// Draw the generated map in the editor
     /// </summary>
     public void DrawMapInEditor() {
-        MapData mapData = GenerateMapData();
+        MapData mapData = GenerateMapData(Vector2.zero);
         MapDisplay display = FindObjectOfType<MapDisplay> ();
         if (drawMode == DrawMode.NoiseMap) {
             display.DrawTexture(TextureGenerator.TextureFromHeightMap(mapData.heightMap));
@@ -49,18 +49,19 @@ public class MapGenerator : MonoBehaviour {
             display.DrawTexture(TextureGenerator.TextureFromColorMap(mapData.colorMap, mapChunkSize, mapChunkSize));
         } else if (drawMode == DrawMode.Mesh) {
             // Draw mesh takes the mesh data and texture data
-            display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapData.heightMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail), TextureGenerator.TextureFromColorMap(mapData.colorMap, mapChunkSize, mapChunkSize));
+            display.DrawMesh(MeshGenerator.GenerateTerrainMesh(mapData.heightMap, meshHeightMultiplier, meshHeightCurve, editorLOD), TextureGenerator.TextureFromColorMap(mapData.colorMap, mapChunkSize, mapChunkSize));
         }
     }
 
     /// <summary>
     /// Start a new thread to generate map data
     /// </summary>
+    /// <param name="center"></param>
     /// <param name="callback">Function to be called when thread finishes generating map data</param>
-    public void RequestMapData(Action<MapData> callback) {
+    public void RequestMapData(Vector2 center, Action<MapData> callback) {
         // Start new thread with the delegate action
         ThreadStart threadStart = delegate {
-            MapDataThread(callback);
+            MapDataThread(center, callback);
         };
 
         new Thread(threadStart).Start();
@@ -69,10 +70,11 @@ public class MapGenerator : MonoBehaviour {
     /// <summary>
     /// Generate map data on a worker thread
     /// </summary>
+    /// <param name="center"></param>
     /// <param name="callback"></param>
-    private void MapDataThread(Action<MapData> callback) {
+    private void MapDataThread(Vector2 center, Action<MapData> callback) {
         // Generate new map data
-        MapData mapData = GenerateMapData();
+        MapData mapData = GenerateMapData(center);
         // Create a lock to stop race conditions
         lock (mapDataTheradInfoQueue) {
             // Enqueue the mapdata to be rendered
@@ -83,11 +85,13 @@ public class MapGenerator : MonoBehaviour {
     /// <summary>
     /// Start a new thread to generate mesh data
     /// </summary>
+    /// <param name="mapData">Map data object</param>
+    /// <param name="levelOfDetail">LOD for mesh</param>
     /// <param name="callback">Function to be called when thread finishes generating mesh data</param>
-    public void RequestMeshData(MapData mapData, Action<MeshData> callback) {
+    public void RequestMeshData(MapData mapData, int lod, Action<MeshData> callback) {
         // Start new thread with the delegate action
         ThreadStart threadStart = delegate {
-            MeshDataThread(mapData, callback);
+            MeshDataThread(mapData, lod, callback);
         };
 
         new Thread(threadStart).Start();
@@ -96,10 +100,12 @@ public class MapGenerator : MonoBehaviour {
     /// <summary>
     /// Generate mesh data on a worker thread
     /// </summary>
-    /// <param name="callback">Callback function to execute after thread finishes</param>
-    private void MeshDataThread(MapData mapData, Action<MeshData> callback) {
+    /// <param name="mapData">Map data object</param>
+    /// <param name="levelOfDetail">LOD for mesh</param>
+    /// <param name="callback">Function to be called when thread finishes generating mesh data</param>
+    private void MeshDataThread(MapData mapData, int lod, Action<MeshData> callback) {
         // Generate a terrain mesh based on previously generated mapdata and mesh parameters
-        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapData.heightMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail);
+        MeshData meshData = MeshGenerator.GenerateTerrainMesh(mapData.heightMap, meshHeightMultiplier, meshHeightCurve, lod);
         // Use lock to stop race conditions
         lock (meshDataTheradInfoQueue) {
             // Queue the mesh to be rendered
@@ -128,9 +134,10 @@ public class MapGenerator : MonoBehaviour {
     /// <summary>
     /// Generate a map with a perlin noise map.
     /// </summary>
+    /// <param name="center"></param>
     /// <returns>MapData struct</returns>
-    private MapData GenerateMapData() {
-        float[,] noiseMap = Noise.GenerateNoiseMap(mapChunkSize, mapChunkSize, seed, noiseScale, octaves, persistance, lacunarity, offset);
+    private MapData GenerateMapData(Vector2 center) {
+        float[,] noiseMap = Noise.GenerateNoiseMap(mapChunkSize, mapChunkSize, seed, noiseScale, octaves, persistance, lacunarity, center + offset);
 
 
         Color[] colorMap = new Color[mapChunkSize * mapChunkSize];
