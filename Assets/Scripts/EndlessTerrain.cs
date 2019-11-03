@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class EndlessTerrain : MonoBehaviour
 {
+
+    const float scale = 1f;
     const float viewerMoveThresholdForChunkUpdate = 25f;
     const float sqrViewerMoveThresholdForChunkUpdate = viewerMoveThresholdForChunkUpdate * viewerMoveThresholdForChunkUpdate;
     public LODInfo[] detailLevels;
@@ -21,7 +23,7 @@ public class EndlessTerrain : MonoBehaviour
     // Dictionary for holding all the rendered chunks
     Dictionary<Vector2, TerrainChunk> terrainChunkDictionary = new Dictionary<Vector2, TerrainChunk>();
     // List of chunks that were rendered last frame
-    List<TerrainChunk> terrainChunksVisibleLastUpdate = new List<TerrainChunk>();
+    static List<TerrainChunk> terrainChunksVisibleLastUpdate = new List<TerrainChunk>();
 
     void Start()
     {
@@ -39,7 +41,7 @@ public class EndlessTerrain : MonoBehaviour
 
     void Update()
     {
-        viewerPosition = new Vector2(viewer.position.x, viewer.position.z);
+        viewerPosition = new Vector2(viewer.position.x, viewer.position.z) / scale;
 
         // We will be using this to only update terrain if player has moved past a certain threshhold
         if ( (viewerPositionOld - viewerPosition).sqrMagnitude > sqrViewerMoveThresholdForChunkUpdate) {
@@ -77,10 +79,11 @@ public class EndlessTerrain : MonoBehaviour
                 {
                     terrainChunkDictionary[chunkCoord].UpdateTerrainChunk();
                     // If the current chunk is visible, add it to the visible chunk list
-                    if (terrainChunkDictionary[chunkCoord].IsVisible())
-                    {
-                        terrainChunksVisibleLastUpdate.Add(terrainChunkDictionary[chunkCoord]);
-                    }
+                    // if (terrainChunkDictionary[chunkCoord].IsVisible()) {
+                        // bug here with the chunk cleanup code due to race condition with updating from LODMesh
+                        // terrainChunksVisibleLastUpdate.Add(terrainChunkDictionary[chunkCoord]);
+                    // }
+                    // Moved to UpdateTerrainChunk
                 }
                 else
                 {
@@ -132,10 +135,11 @@ public class EndlessTerrain : MonoBehaviour
             meshRenderer = meshObject.AddComponent<MeshRenderer>();
             meshFilter = meshObject.AddComponent<MeshFilter>();
             meshRenderer.material = material;
-            meshObject.transform.position = positionV3;
+            meshObject.transform.position = positionV3 * scale;
             // Primite Plane is default 10 scale, so divide by 10 to get the correct value
             // meshObject.transform.localScale = Vector3.one * size / 10f;
             meshObject.transform.parent = parent;
+            meshObject.transform.localScale = Vector3.one * scale;
             // Default state is invisible
             SetVisible(false);
 
@@ -197,6 +201,7 @@ public class EndlessTerrain : MonoBehaviour
                             lodMesh.RequestMesh(mapData);
                         }
                     }
+                    terrainChunksVisibleLastUpdate.Add(this);
                 }
 
                 SetVisible(visible);
