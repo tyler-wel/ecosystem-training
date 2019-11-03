@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class EndlessTerrain : MonoBehaviour
-{
+public class EndlessTerrain : MonoBehaviour {
 
     const float scale = 1f;
     const float viewerMoveThresholdForChunkUpdate = 25f;
