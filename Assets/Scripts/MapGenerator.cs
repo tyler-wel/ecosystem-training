@@ -13,7 +13,7 @@ public class MapGenerator : MonoBehaviour {
         FalloffMap
     };
 
-    public const int mapChunkSize = 241;
+    public const int mapChunkSize = 120;
     // 1, 2, 4, 6, 8, 10, 12
     [Range(0,6)] // multiply by 2 to get 4, 6, 8, 10, 12
     public int editorLOD;
